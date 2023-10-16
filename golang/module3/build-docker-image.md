@@ -17,9 +17,9 @@
    ```shell
    $ sudo docker login
    
-   $ sudo docker tag gohttpserver:v1 helenwami/gostudy:v1
-   $ sudo docker push helenwami/gostudy:v1
-   The push refers to repository [docker.io/helenwami/gostudy]
+   $ sudo docker tag gohttpserver:v1 helenwami/gohttpserver:v1
+   $ sudo docker push helenwami/gohttpserver:v1
+   The push refers to repository [docker.io/helenwami/gohttpserver]
    28a09da6317b: Pushed
    9f54eef41275: Pushed
    v1: digest: sha256:a92849ec983cd51988aa92462b0f55e73fdb77202975b7e38b3322853152a735 size: 740
@@ -30,7 +30,7 @@
 3. 启动容器镜像
 
    ```shell
-   sudo docker run -p 81:81 helenwami/gostudy:v1
+   sudo docker run -p 81:81 helenwami/gohttpserver:v1
    ```
 
    浏览器访问http://xx.xx.xx.xx:81/healthz
@@ -41,7 +41,7 @@
    $ sudo docker ps -a
    [sudo] password for minwang:
    CONTAINER ID   IMAGE                                               COMMAND                  CREATED         STATUS                     PORTS                                       NAMES
-   d718300d5f7d   helenwami/gostudy:v1                                "/bin/sh -c /gohttps…"   3 minutes ago   Up 3 minutes
+   d718300d5f7d   helenwami/gohttpserver:v1                                "/bin/sh -c /gohttps…"   3 minutes ago   Up 3 minutes
    
    $ sudo docker container top d718300d5f7d
    UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
