@@ -1,7 +1,7 @@
 FROM ubuntu
-ENV MY_SERVICE_PORT=8080
-LABEL author=minwang
-ADD bin/amd64/httpserver /httpserver
+ENV MY_SERVICE_PORT=81
+LABEL author=helenwami
+ADD bin/amd64/httpserver /gohttpserver
 RUN echo 'httpserver is serving...'
-EXPOSE 8080
-ENTRYPOINT /httpserver
+EXPOSE 81
+ENTRYPOINT /gohttpserver
