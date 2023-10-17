@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: httpserver-ing
+  namespace: gohttpserver
+spec:
+  tls:
+    - hosts:
+        - httpserver.test
+      secretName: httpserver-tls
+  rules:
+  - host: httpserver.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: httpserver
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
