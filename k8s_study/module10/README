@@ -1,0 +1,199 @@
+1. 为 HTTPServer 添加 0-2 秒的随机延时；
+2. 为 HTTPServer 项目添加延时 Metric；
+3. 将 HTTPServer 部署至测试集群，并完成 Prometheus 配置；
+4. 从 Promethus 界面中查询延时指标数据；
+5. （可选）创建一个 Grafana Dashboard 展现延时分配情况。
+
+
+
+1. 为HTTPServer添加0-2秒的随机延时
+
+```go
+// 在 main.go中做修改
+// 导入 time 模块
+// 添加0-2秒的随机延时功能
+func Delay() {
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(2000)))
+}
+
+// 访问/heathlz时，先执行延时功能，在返回http.Status Code
+func healthz(response http.ResponseWriter, request *http.Request) {
+	println("调用healthz接口")
+	Delay()
+	response.WriteHeader(200) //设置返回码200
+	println(http.StatusOK)
+	//response.WriteHeader(http.StatusOK)//默认会调用这个方法，默认就是200【server.go有源码】
+	io.WriteString(response, "200")
+}
+```
+
+
+
+2. 为HTTPServer 项目添加延时 Metric
+
+```go
+// 自定义一个 metrics 模块
+package metrics
+
+import (
+	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"time"
+)
+
+func Register() {
+	err := prometheus.Register(functionLatency)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+const (
+	MetricsNamespace = "gohttpserver"
+)
+
+func NewTimer() *ExecutionTimer {
+	return NewExecutionTimer(functionLatency)
+}
+
+var (
+	functionLatency = CreateExecutionTimeMetric(MetricsNamespace, "Time spent.")
+)
+
+func NewExecutionTimer(histo *prometheus.HistogramVec) *ExecutionTimer {
+	now := time.Now()
+	return &ExecutionTimer{histo: histo, start: now, last: now}
+}
+
+func (t *ExecutionTimer) ObserveTotal() {
+	(*t.histo).WithLabelValues("total").Observe(time.Now().Sub(t.start).Seconds())
+}
+
+func CreateExecutionTimeMetric(namespace string, help string) *prometheus.HistogramVec {
+	return prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "execution_latency_seconds",
+			Help:      help,
+			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 15),
+		}, []string{"step"},
+	)
+}
+
+type ExecutionTimer struct {
+	histo *prometheus.HistogramVec
+	start time.Time
+	last  time.Time
+}
+```
+
+
+
+2.1 在main.go中导入metrics包，并注册metrics功能接口
+
+```go
+import (
+	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"helenwami/cncamp/k8s_study/module10/metrics"
+	"io"
+	"log"
+	"math/rand"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+func main() {
+	// 添加延时metrics功能
+	metrics.Register()
+	http.Handle("/metrics", promhttp.Handler())
+	// ····
+	
+	}
+	
+```
+
+
+
+3. 将 HTTPServer 部署至测试集群，并完成 Prometheus 配置
+
+3.1 本地重新构建httpserver镜像推送至hub.docker.com
+
+```shell
+$ GOARCH=amd64 go build -o bin/amd64/httpserver main.go
+
+# 构建镜像gohttpserver:v1.1
+$ sudo docker build -t gohttpserver:v1.1 .
+
+$ sudo docker login   
+$ sudo docker tag gohttpserver:v1.1 helenwami/gohttpserver:v1.1
+$ sudo docker push helenwami/gohttpserver:v1.1
+
+```
+
+
+
+
+
+3.2 修改httpserver-dep.yaml 文件中httpserver的image版本为v1.1，添加prometheus配置，重新部署httpserver到kubernetes集群
+
+```shell
+$ kubectl apply -f httpserver.yaml
+```
+
+
+
+3.3 安装prometheus和grafana
+
+```shell
+# 安装helm
+$ sudo apt-get install helm
+
+# 为helm配置grafana仓库
+$ helm repo add grafana https://grafana.github.io/helm-charts
+"grafana" has been added to your repositories
+
+# 安装loki-stack
+$ helm repo update
+$ helm upgrade --install loki grafana/loki-stack --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false
+
+Release "loki" does not exist. Installing it now.
+W1019 19:48:59.619555 2149678 warnings.go:70] policy/v1beta1 PodSecurityPolicy is deprecated in v1.21+, unavailable in v1.25+
+W1019 19:48:59.621144 2149678 warnings.go:70] policy/v1beta1 PodSecurityPolicy is deprecated in v1.21+, unavailable in v1.25+
+W1019 19:48:59.696404 2149678 warnings.go:70] policy/v1beta1 PodSecurityPolicy is deprecated in v1.21+, unavailable in v1.25+
+W1019 19:48:59.696934 2149678 warnings.go:70] policy/v1beta1 PodSecurityPolicy is deprecated in v1.21+, unavailable in v1.25+
+NAME: loki
+LAST DEPLOYED: Thu Oct 19 19:48:58 2023
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+NOTES:
+The Loki stack has been deployed to your cluster. Loki can now be added as a datasource in Grafana.
+
+$ helm pull grafana/loki-stack
+$ tar -xvf loki-stack-*.tgz
+$ cd loki-stack && grep -rl "rbac.authorization.k8s.io/v1beta1" . | xargs sed -i 's/rbac.authorization.k8s.io\/v1beta1/rbac.authorization.k8s.io\/v1/g'
+$ cd ..
+$ helm upgrade --install loki ./loki-stack --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false
+See http://docs.grafana.org/features/datasources/loki/ for more detail.
+# 查看loki-stack是否安装成功
+$ kubectl get pods
+
+
+
+
+
+```
+
+
+
+
+
+4. 从 Promethus 界面中查询延时指标数据
+
+
+
+5. 创建一个 Grafana Dashboard 展现延时分配情况
