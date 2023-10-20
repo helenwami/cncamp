@@ -2,8 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"helenwami/cncamp/k8s_study/module10/metrics"
+	"cncamp/k8s_study/module10/metrics"
 	"io"
 	"log"
 	"math/rand"
@@ -12,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 /*
@@ -26,31 +26,41 @@ import (
 func main() {
 	println("环境正常")
 
+	metrics.Register()
+
+	mux := http.NewServeMux()
+
 	// 功能1
-	http.HandleFunc("/requestAndResponse", requestAndResponse)
+	mux.HandleFunc("/requestAndResponse", requestAndResponse)
 
 	// 功能2
-	http.HandleFunc("/getVersion", getVersion)
+	mux.HandleFunc("/getVersion", getVersion)
 
 	// 功能3
-	http.HandleFunc("/ipAndStatus", ipAndStatus) //注册接口句柄
+	mux.HandleFunc("/ipAndStatus", ipAndStatus) //注册接口句柄
 
 	// 功能4, 返回200，且执行前有0-2秒的随机延时
-	http.HandleFunc("/healthz", healthz) //注册接口句柄
+	mux.HandleFunc("/healthz", healthz) //注册接口句柄
+
+	// 延时0-2秒
+	mux.HandleFunc("/delay", delay)
 
 	// 添加metrics
-	metrics.Register()
-	http.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.Handler())
 
-	err := http.ListenAndServe(":81", nil) //监听空句柄，80端口被占用，使用81端口
+	err := http.ListenAndServe(":81", mux) //监听空句柄，80端口被占用，使用81端口
 	if nil != err {
 		log.Fatal(err) //显示错误日志
 	}
 }
 
 // 添加0-2秒的随机延时功能
-func Delay() {
-	time.Sleep(time.Millisecond * time.Duration(rand.Intn(2000)))
+func delay(w http.ResponseWriter, r *http.Request) {
+	timer := metrics.NewTimer()
+	defer timer.ObserveTotal()
+	randInt := rand.Intn(2000)
+	time.Sleep(time.Millisecond * time.Duration(randInt))
+	w.Write([]byte(fmt.Sprintf("<h1>%d<h1>", randInt)))
 }
 
 // 功能1，接收请求及响应
@@ -114,9 +124,9 @@ func ipAndStatus(response http.ResponseWriter, request *http.Request) {
 // 功能4，连通性测试接口
 func healthz(response http.ResponseWriter, request *http.Request) {
 	println("调用healthz接口")
-	Delay()
 	response.WriteHeader(200) //设置返回码200
 	println(http.StatusOK)
 	//response.WriteHeader(http.StatusOK)//默认会调用这个方法，默认就是200【server.go有源码】
 	io.WriteString(response, "200")
 }
+

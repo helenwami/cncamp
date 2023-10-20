@@ -37,9 +37,9 @@ func (t *ExecutionTimer) ObserveTotal() {
 func CreateExecutionTimeMetric(namespace string, help string) *prometheus.HistogramVec {
 	return prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: namespace,
+			Namespace: "gohttpserver",
 			Name:      "execution_latency_seconds",
-			Help:      help,
+			Help:      "latency_records",
 			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 15),
 		}, []string{"step"},
 	)
