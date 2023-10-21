@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: gohttpserver-svc
+  namespace: httpserver-istio
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+      - gohttpserver.io
+    port:
+      name:  gohttpserver-svc
+      number: 443
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: gohttpserver-credential

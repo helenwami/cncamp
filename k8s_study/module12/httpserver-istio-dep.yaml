@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gohttpserver
+  name: gohttpserver
+  # 定义命名空间为gohttpserver
+  namespace: httpserver-istio
+spec:
+  # 为应用配置多个副本，确保应用的高可用
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gohttpserver
+  template:
+    metadata:
+      labels:
+        app: gohttpserver
+      annotations:
+        prometheus.io/port: server-port
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - image: helenwami/gohttpserver:v1.3
+        name: gohttpserver
+        ports:
+        - name: server-port
+          containerPort: 81
+        # 以volume挂载的方式分离配置文件,明文配置文件放入ConfigMap中
+        volumeMounts:
+        - mountPath: /etc/httpserver.d
+          name: httpserver-conf-vol
+        resources:
+          requests:
+            cpu: "4m"
+            memory: "20Mi"
+          limits:
+            memory: "1Gi"
+            cpu: "100m"
+        # 探活指针，判断pod是否存活
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: server-port
+          initialDelaySeconds: 1
+          periodSeconds: 5
+        # Readiness指针，判断容器是否准备好接收访问请求
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: server-port
+          initialDelaySeconds: 2
+          periodSeconds: 4
+        # 优雅终止时间50秒
+      terminationGracePeriodSeconds: 50
+      volumes:
+      - name: httpserver-conf-vol
+        configMap:
+          name: httpserver-conf

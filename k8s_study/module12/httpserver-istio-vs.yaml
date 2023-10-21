@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: gohttpserver-svc
+  namespace: httpserver-istio
+spec:
+  gateways:
+    - gohttpserver-svc
+  hosts:
+    - gohttpserver.io
+  http:
+    - match:
+        - port: 443
+      route:
+        - destination:
+            host: gohttpserver
+            port:
+              number: 80
