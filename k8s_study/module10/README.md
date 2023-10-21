@@ -4,7 +4,7 @@
 4. 从 Promethus 界面中查询延时指标数据；
 5. （可选）创建一个 Grafana Dashboard 展现延时分配情况。
 
-
+-----------------
 
 1. 为HTTPServer添加0-2秒的随机延时
 
@@ -28,7 +28,7 @@ import (
 
 func main() {
 	println("环境正常")
-
+        metrics.Register()
 	mux := http.NewServeMux()
 
 	// 功能1
