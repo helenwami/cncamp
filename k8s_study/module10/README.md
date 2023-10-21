@@ -110,9 +110,9 @@ func (t *ExecutionTimer) ObserveTotal() {
 func CreateExecutionTimeMetric(namespace string, help string) *prometheus.HistogramVec {
 	return prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: namespace,
+			Namespace: "gohttpserver",
 			Name:      "execution_latency_seconds",
-			Help:      help,
+			Help:      "http latency records",
 			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 15),
 		}, []string{"step"},
 	)
@@ -203,7 +203,7 @@ v1.3: digest: sha256:37b729f0bf539ee56cbfcc95a38ba21f87ec6d5427a72de426ae7b85d07
 
 
 
-3.2 修改httpserver-dep.yaml 文件中httpserver的image版本为v1.1，添加prometheus配置，重新部署httpserver到kubernetes集群
+3.2 修改httpserver-dep.yaml 文件中httpserver的image版本为v1.3，添加prometheus配置，重新部署httpserver到kubernetes集群
 
 ````shell
 $ kubectl apply -f httpserver-dep.yaml
