@@ -255,7 +255,30 @@
 8. 创建ingress，生成证书并添加到ingress中
 
    ```shell
-   # # kubectl create ingress httpserver-ing --rule="httpserver.test/=httpserver:80" --dry-run=client -o yaml -n gohttpserver
+   # 部署nginx-ingress-controller
+   
+   # kubectl apply -f nginx-ingress-deployment.yaml
+   namespace/ingress-nginx created
+   serviceaccount/ingress-nginx created
+   configmap/ingress-nginx-controller created
+   clusterrole.rbac.authorization.k8s.io/ingress-nginx created
+   clusterrolebinding.rbac.authorization.k8s.io/ingress-nginx created
+   role.rbac.authorization.k8s.io/ingress-nginx created
+   rolebinding.rbac.authorization.k8s.io/ingress-nginx created
+   service/ingress-nginx-controller-admission created
+   service/ingress-nginx-controller created
+   deployment.apps/ingress-nginx-controller created
+   ingressclass.networking.k8s.io/nginx created
+   validatingwebhookconfiguration.admissionregistration.k8s.io/ingress-nginx-admission created
+   serviceaccount/ingress-nginx-admission created
+   clusterrole.rbac.authorization.k8s.io/ingress-nginx-admission created
+   clusterrolebinding.rbac.authorization.k8s.io/ingress-nginx-admission created
+   role.rbac.authorization.k8s.io/ingress-nginx-admission created
+   rolebinding.rbac.authorization.k8s.io/ingress-nginx-admission created
+   job.batch/ingress-nginx-admission-create created
+   job.batch/ingress-nginx-admission-patch created
+   
+   # kubectl create ingress httpserver-ing --class=nginx --rule="httpserver.test/=httpserver:80" --dry-run=client -o yaml -n gohttpserver
    apiVersion: networking.k8s.io/v1
    kind: Ingress
    metadata:
@@ -263,6 +286,7 @@
      name: httpserver-ing
      namespace: gohttpserver
    spec:
+     ingressClassName: nginx
      rules:
      - host: httpserver.test
        http:
@@ -305,6 +329,8 @@
    kind: Ingress
    metadata:
      name: httpserver-ing
+     annotations:
+       kubernetes.io/ingress.class: "nginx"
      namespace: gohttpserver
    spec:
      tls:
@@ -324,11 +350,38 @@
            pathType: Prefix
    
    # kubectl apply -f httpserver-ing.yaml
+   Error from server (InternalError): error when creating "httpserver-ing.yaml": Internal error occurred: failed calling webhook "validate.nginx.ingress.kubernetes.io": Post "https://ingress-nginx-controller-admission.ingress-nginx.svc:443/networking/v1/ingresses?timeout=10s": dial tcp 10.97.27.231:443: connect: connection refused
+   
+   # kubectl get validatingwebhookconfigurations
+   NAME                           WEBHOOKS   AGE
+   ingress-nginx-admission        1          22m
+   istio-validator-istio-system   1          42h
+   istiod-default-validator       1          42h
+   
+   # kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
+   validatingwebhookconfiguration.admissionregistration.k8s.io "ingress-nginx-admission" deleted
+   
+   # kubectl apply -f httpserver-ing.yaml
    ingress.networking.k8s.io/httpserver-ing created
    
-   # kubectl get ing -n gohttpserver
+   # # kubectl get ingress httpserver-ing -n gohttpserver
    NAME             CLASS    HOSTS             ADDRESS   PORTS     AGE
-   httpserver-ing   <none>   httpserver.test             80, 443   39s
+   httpserver-ing   <none>   httpserver.test             80, 443   82s
+   
+   # kubectl describe ingress httpserver-ing -n gohttpserver
+   Name:             httpserver-ing
+   Namespace:        gohttpserver
+   Address:
+   Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+   TLS:
+     httpserver-tls terminates httpserver.test
+   Rules:
+     Host             Path  Backends
+     ----             ----  --------
+     httpserver.test
+                      /   httpserver:80 (192.168.219.114:81,192.168.219.115:81)
+   Annotations:       kubernetes.io/ingress.class: nginx
+   Events:            <none>
    
    # 在本地hosts中添加httpserver.test域名解析
    # vi /etc/hosts
@@ -352,7 +405,7 @@
    * Connection #0 to host httpserver.test left intact
    200
    
-   root@master:~/ymlfile# kubectl describe secret httpserver-tls -n gohttpserver
+   # kubectl describe secret httpserver-tls -n gohttpserver
    Name:         httpserver-tls
    Namespace:    gohttpserver
    Labels:       <none>
@@ -365,12 +418,12 @@
    tls.crt:  1224 bytes
    tls.key:  1708 bytes
    
-   root@master:~/ymlfile# curl https://httpserver.test/healthz -v -k
+   # curl https://httpserver.test/healthz -v -k
    *   Trying 10.111.136.12:443...
    * TCP_NODELAY set
    
    
    ```
-
+   
    
 
